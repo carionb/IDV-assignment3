@@ -1,0 +1,444 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Singapore BTO Prices & Elderly Population</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --accent: #e74c3c;
+            --bg: #f8f9fb;
+            --text: #34495e;
+            --border: #ecf0f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .controls {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            margin-bottom: 2rem;
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        select {
+            padding: 0.6rem 1.2rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            appearance: none;
+            cursor: pointer;
+        }
+
+        .map-container {
+            position: relative;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            backdrop-filter: blur(4px);
+            font-size: 0.9rem;
+            max-width: 280px;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .analysis-section {
+            background: linear-gradient(to bottom right, #ffffff, #f8fafc);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            margin: 2rem 0;
+            padding: 2.5rem;
+            border: 1px solid rgba(241, 245, 249, 0.6);
+        }
+
+        .qa-item {
+            background: white;
+            border-radius: 12px;
+            margin: 1.8rem 0;
+            padding: 1.8rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border-left: 4px solid #3b82f6;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <h1 style="text-align: center; font-size: 2.5rem; margin-bottom: 2rem;">
+  Singapore BTO Prices & Elderly Population Map (2013–2018)
+</h1>
+        <div class="controls">
+            <div class="control-group">
+                <label>Year</label>
+                <select id="year-select">
+                    <option>2013</option>
+                    <option>2014</option>
+                    <option>2015</option>
+                    <option>2016</option>
+                    <option>2017</option>
+                    <option selected>2018</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Room Type</label>
+                <select id="room-select">
+                    <option value="All">All Types</option>
+                    <option>2-room</option>
+                    <option>3-room</option>
+                    <option>4-room</option>
+                    <option>5-room</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+  <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+    <input type="checkbox" id="toggle-price" style="accent-color: var(--secondary); width: 18px; height: 18px;">
+    <span style="font-size: 0.95rem;">Show Prices</span>
+  </label>
+</div>
+
+        </div>
+
+        <div class="map-container">
+            <svg id="map"></svg>
+            <div id="tooltip" class="tooltip"></div>
+            <div class="legend">
+                <h4 style="margin-bottom: 0.5rem;">Legend</h4>
+                <div class="legend-item" style="margin-bottom: 0.3rem;">
+            <div class="legend-color" style="background: linear-gradient(to right, #fff5eb, #f03b20); width: 20px; height: 12px; display: inline-block; margin-right: 6px; border-radius: 3px;"></div>
+                    <span>Elderly Population Ratio</span>
+                </div>
+            <div class="legend-item" style="margin-bottom: 0.3rem;">
+                    <svg width="60" height="20">
+                    <circle cx="15" cy="10" r="5" stroke="#bdd7e7" fill="none" stroke-width="2"></circle>
+                    <circle cx="40" cy="10" r="10" stroke="#2171b5" fill="none" stroke-width="2"></circle>
+                </svg>
+        <span style="margin-left: 8px;">HDB Avg Price (circle size & color)</span>
+               </div>
+            </div>
+        </div>
+
+       <div class="analysis-section">
+    <h3>Are Aging Estates in Singapore More Affordable? A Map-based Exploration of Elderly Population and BTO Flat Prices (2013–2018)</h3>
+
+    <p><strong>Background:</strong><br>
+    As Singapore's population continues to age, certain HDB towns have seen rising elderly populations. This map explores whether towns with a higher proportion of elderly residents tend to have more affordable newly launched BTO flats.
+    </p>
+
+    <p style="margin-bottom: 1.5rem;"></p>
+
+    <p><strong>Questions:</strong>
+    <ol>
+        <li>Do towns with a higher elderly population ratio have lower BTO flat prices?</li>
+        <li>Which towns are most affordable for elderly households or multi-generation families?</li>
+        <li>Is the spatial distribution of BTO prices influenced more by demographics or geography?</li>
+    </ol>
+    </p>
+
+    <p style="margin-bottom: 1.5rem;"></p>
+
+    <p><strong>Findings (2018 data):</strong>
+    <ul>
+        <li>Among towns with both datasets available, <strong>Sembawang, Yishun, and Jurong West</strong> have relatively <strong>high elderly ratios</strong> and <strong>lower BTO flat prices</strong>, especially for 4- and 5-room flats.</li>
+        <li><strong>Jurong West</strong>: Avg. 4-room BTO price ~$354k</li>
+        <li><strong>Sembawang</strong>: Avg. 4-room BTO price ~$318k</li>
+        <li><strong>Yishun</strong>: Avg. 4-room BTO price ~$326k</li>
+        <li>Exploratory correlation (2013 & 2018 data):<strong> A weak positive relationship (~+0.31) </strong> was observed between elderly population ratio and BTO price across towns. However, due to limited data points, this trend is not statistically conclusive.</li>
+    </ul>
+    </p>
+
+    <p style="margin-bottom: 1.5rem;"></p>
+
+    <p><strong>Conclusion:</strong><br>
+    The map helps visualize how aging and affordability interact spatially in Singapore. Surprisingly, mature towns can remain expensive despite having higher elderly populations, challenging the assumption that aging = affordability.</p>
+
+    <p style="margin-top: 2rem;"><strong>Note on Price Data:</strong><br>
+    The HDB price data shown in this map reflects the average of minimum and maximum prices of newly launched BTO flats (not resale flats). These prices are available only for selected towns where new flats were offered each year, including Punggol, Jurong West, Choa Chu Kang, Bukit Panjang, Woodlands, Sembawang, and Sengkang.
+    </p>
+</div>
+
+<div class="analysis-section">
+    <h3>Data Sources</h3>
+    <ul>
+        <li><strong>Elderly Population Data:</strong> <a href="https://www.singstat.gov.sg/" target="_blank">Singapore Department of Statistics</a></li>
+        <li><strong>HDB Price Ranges:</strong> <a href="https://data.gov.sg/dataset/price-range-of-hdb-flats-offered" target="_blank">data.gov.sg</a></li>
+        <li><strong>Planning Boundaries:</strong> <a href="https://www.ura.gov.sg/maps" target="_blank">Urban Redevelopment Authority</a></li>
+    </ul>
+</div>
+    </div>
+
+    <script>
+        const svgWidth = Math.min(window.innerWidth - 20, 1200);
+        const svgHeight = Math.min(svgWidth * 0.7, 800);
+        
+        const svg = d3.select("#map")
+            .attr("width", svgWidth)
+            .attr("height", svgHeight);
+
+        const projection = d3.geoMercator()
+            .center([103.86, 1.33])
+            .scale(svgWidth * 100)
+            .translate([svgWidth/2, svgHeight/2]);
+
+        const path = d3.geoPath().projection(projection);
+        const tooltip = d3.select("#tooltip");
+        const zoom = d3.zoom()
+            .scaleExtent([1, 8])
+            .on("zoom", ({transform}) => svg.attr("transform", transform));
+
+        svg.call(zoom);
+
+        const normalizeName = name => name.trim().toUpperCase()
+            .replace(/(&nbsp;|\(|\)|')/g, '')
+            .replace(/\s+/g, ' ');
+
+        const extractPLNAreaName = desc => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(desc, "text/html");
+            const th = Array.from(doc.querySelectorAll('th'))
+                .find(th => th.textContent === 'PLN_AREA_N');
+            return th?.nextElementSibling?.textContent?.trim() || null;
+        };
+
+        Promise.all([
+            d3.csv("https://raw.githubusercontent.com/carionb/0322/main/elderly.csv", d3.autoType),
+            d3.csv("https://raw.githubusercontent.com/carionb/0322/main/PriceRangeofHDBFlatsOffered.csv", d3.autoType),
+            d3.json("https://raw.githubusercontent.com/carionb/0322/main/MasterPlan2019PlanningAreaBoundaryNoSea.geojson")
+        ]).then(([elderlyData, priceData, geoData]) => {
+            priceData.forEach(d => {
+                d.avg_price = (+d.min_selling_price + +d.max_selling_price) / 2;
+                d.norm_town = normalizeName(d["Town/estate"]);
+            });
+
+            const areaMap = new Map();
+            geoData.features.forEach(f => {
+                const name = extractPLNAreaName(f.properties.Description);
+                if (name) areaMap.set(normalizeName(name), {
+                    name: name,
+                    centroid: d3.geoCentroid(f)
+                });
+            });
+
+            function render(year, roomType, showPrice) {
+                svg.selectAll("*").remove();
+
+                const elderScale = d3.scaleSequential(d3.interpolateYlOrRd)
+                    .domain([0, d3.max(elderlyData, d => d.Elderly/d.Total)]);
+
+                // Draw regions
+                svg.selectAll("path")
+                    .data(geoData.features)
+                    .join("path")
+                    .attr("d", path)
+                    .attr("stroke", "white")
+                    .attr("stroke-width", 0.5)
+                    .attr("fill", d => {
+                        const town = extractPLNAreaName(d.properties.Description);
+                        const data = elderlyData.find(e => 
+                            normalizeName(e["Town/estate"]) === normalizeName(town) && 
+                            e.SHS_year === +year
+                        );
+                        return data ? elderScale(data.Elderly/data.Total) : "#eee";
+                    })
+                    .on("mouseover", (event, d) => {
+                        const town = extractPLNAreaName(d.properties.Description);
+                        const data = elderlyData.find(e => 
+                            normalizeName(e["Town/estate"]) === normalizeName(town) && 
+                            e.SHS_year === +year
+                        );
+                        if (data) {
+                            tooltip.html(`
+                                <h3>${town}</h3>
+                                <p>Elderly: ${data.Elderly} (${(data.Elderly/data.Total*100).toFixed(1)}%)</p>
+                                <p>Total Population: ${data.Total}</p>
+                            `)
+                            .style("opacity", 1)
+                            .style("left", `${event.pageX + 15}px`)
+                            .style("top", `${event.pageY - 20}px`);
+                        }
+                    })
+                    .on("mouseout", () => tooltip.style("opacity", 0));
+
+                if (showPrice) {
+                    let filteredData;
+                    if (roomType === "All") {
+                        const townMap = d3.rollup(
+                            priceData.filter(d => d.financial_year === +year),
+                            v => d3.mean(v, x => x.avg_price),
+                            d => d.norm_town
+                        );
+                        filteredData = Array.from(townMap, ([town, price]) => ({
+                            norm_town: town,
+                            avg_price: price,
+                            town_name: priceData.find(d => d.norm_town === town)["Town/estate"]
+                        }));
+                    } else {
+                        filteredData = priceData.filter(d => 
+                            d.financial_year === +year &&
+                            d.room_type.toLowerCase() === roomType.toLowerCase()
+                        );
+                    }
+
+                    const priceExtent = d3.extent(filteredData, d => d.avg_price);
+                    const radiusScale = d3.scaleSqrt()
+                        .domain(priceExtent)
+                        .range([3, svgWidth/30]);
+
+                    const priceColor = d3.scaleSequential(d3.interpolateBlues)
+                        .domain(priceExtent);
+
+                   // Draw price circles
+svg.selectAll(".price-circle")
+    .data(filteredData)
+    .join("circle")
+    .attr("class", "price-circle")
+    .attr("cx", d => {
+        const loc = areaMap.get(d.norm_town);
+        return loc ? projection(loc.centroid)[0] : null;
+    })
+    .attr("cy", d => {
+        const loc = areaMap.get(d.norm_town);
+        return loc ? projection(loc.centroid)[1] : null;
+    })
+    .attr("r", 0)
+    .transition()
+    .duration(600)
+    .attr("r", d => radiusScale(d.avg_price))
+    .attr("fill", d => priceColor(d.avg_price))
+    .attr("fill-opacity", 0.6)   // ✅ 淡淡的填色
+    .attr("stroke", "#333")      // ✅ 增强边缘对比
+    .attr("stroke-width", 1.2);
+
+// Draw always-visible price labels (with stroke)
+svg.selectAll(".price-label")
+    .data(filteredData)
+    .join("text")
+    .attr("class", "price-label")
+    .attr("x", d => {
+        const loc = areaMap.get(d.norm_town);
+        return loc ? projection(loc.centroid)[0] : null;
+    })
+    .attr("y", d => {
+        const loc = areaMap.get(d.norm_town);
+        return loc ? projection(loc.centroid)[1] + 4 : null;
+    })
+    .text(d => `$${Math.round(d.avg_price / 1000)}k`)
+    .attr("font-size", "10px")
+    .attr("text-anchor", "middle")
+    .attr("fill", "#222")
+    .attr("stroke", "#fff")             // ✅ 白描边让文字更清晰
+    .attr("stroke-width", 2)
+    .attr("paint-order", "stroke")      // ✅ 确保描边在下层
+    .attr("pointer-events", "none");
+
+// Add tooltip + label reveal on hover
+svg.selectAll(".price-circle")
+    .on("mouseover", (event, d) => {
+        const data = elderlyData.find(e => 
+            normalizeName(e["Town/estate"]) === d.norm_town &&
+            e.SHS_year === +year
+        );
+
+        tooltip.html(`
+            <h3>${d.town_name}</h3>
+            <p>${roomType === "All" ? "Average" : roomType} Price: $${d.avg_price.toLocaleString()}</p>
+            <p>Elderly Ratio: ${data ? (data.Elderly/data.Total*100).toFixed(1)+'%' : 'N/A'}</p>
+        `)
+        .style("opacity", 1)
+        .style("left", `${event.pageX + 15}px`)
+        .style("top", `${event.pageY - 20}px`);
+
+        // ✅ Show label on hover
+        labels
+            .filter(l => l.norm_town === d.norm_town)
+            .text(`$${Math.round(d.avg_price / 1000)}k`);
+    })
+    .on("mouseout", () => {
+        tooltip.style("opacity", 0);
+        labels.text(""); // ✅ Remove label
+    });
+
+
+
+                }
+            }
+
+            d3.selectAll("select, #toggle-price")
+                .on("change", () => render(
+                    document.getElementById("year-select").value,
+                    document.getElementById("room-select").value,
+                    document.getElementById("toggle-price").checked
+                ));
+
+            render(2018, "All", false);
+        });
+    </script>
+
+    <footer style="text-align: center; margin-top: 3rem; font-size: 1rem; color: #888;">
+  Baorong Li - 1009456
+</footer>
+    
+</body>
+</html>
